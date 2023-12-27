@@ -1,5 +1,8 @@
 class Item {
-  constructor (name: string, sellIn: int, quality: int) {
+  constructor (name: string, sellIn: int, quality: int)
+  ensures this.name == name
+  ensures this.quality == quality
+  ensures this.sellIn == sellIn {
     this.name := name;
     this.quality := quality;
     this.sellIn := sellIn;
@@ -7,20 +10,39 @@ class Item {
   var quality: int
   var name: string
   var sellIn: int
+  predicate valid()
+    reads this {
+    (isSulfuras(name) ==> quality == 80) &&
+    (!isSulfuras(name) ==> 0 <= quality <= 50)
+  }
+}
+
+function isSulfuras(name: string): bool {
+  name == "Sulfuras, Hand of Ragnaros"
+}
+
+predicate allValid(items: array<Item>) reads items, items[..] {
+  forall i :: 0 <= i < items.Length ==> items[i].valid()
 }
 
 method updateItems(items: array<Item>)
+requires allValid(items)
+ensures allValid(items)
   modifies items[..]
 {
 
   for i := 0 to items.Length
+  invariant allValid(items)
   {
     var item := items[i];
+    assert item.valid();
     updateItem(item);
   }
 }
 
 method updateItem(item: Item)
+  requires item.valid()
+  ensures item.valid()
   modifies item
 {
   if (item.name != "Aged Brie"
@@ -99,10 +121,14 @@ method Main() {
   var items := new Item[][item1, item2, item3, item4, item5, item6, item7, item8, item9];
   var days := 30;
   print("OMGHAI!\n");
+  assert allValid(items);
   for day := 0 to days + 1
-    modifies items[..] {
+    modifies items[..] 
+    invariant allValid(items)
+    {
     print("-------- day " + intToString(day) + " --------\n");
     print("name, sellIn, quality\n");
+    
     for i := 0 to items.Length {
       var item := items[i];
       print(item.name +
@@ -110,6 +136,7 @@ method Main() {
             intToString(item.quality) + "\n");
     }
     print("\n");
+    
     updateItems(items);
   }
 }
