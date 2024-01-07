@@ -17,8 +17,27 @@ class Item {
   }
 }
 
-function isSulfuras(name: string): bool {
+function boundQuality(quality: int): int 
+  ensures 0 <= boundQuality(quality) <= 50 {
+  if quality < 0 then 0
+  else if quality > 50 then 50
+  else quality
+}
+
+predicate isSulfuras(name: string) {
   name == "Sulfuras, Hand of Ragnaros"
+}
+
+predicate isBrie(name: string) {
+  name == "Aged Brie"
+}
+
+predicate isBackstage(name: string) {
+  name == "Backstage passes to a TAFKAL80ETC concert"
+}
+
+predicate isNormal(name: string) {
+  !isBrie(name) && !isSulfuras(name) && !isBackstage(name)
 }
 
 predicate allValid(items: array<Item>) reads items, items[..] {
@@ -41,8 +60,30 @@ ensures allValid(items)
 }
 
 method updateItem(item: Item)
+  // if isSulfuras then quality unchange, sellIn decremented
   requires item.valid()
   ensures item.valid()
+  ensures item.name == old(item.name)
+  ensures isNormal(item.name) && old(item.sellIn) > 0 ==> 
+    item.quality == boundQuality(old(item.quality) - 1)
+  ensures isNormal(item.name) && old(item.sellIn) <= 0 ==> 
+    item.quality == boundQuality(old(item.quality) - 2)
+
+  ensures isSulfuras(item.name) ==> item.quality == old(item.quality) && item.sellIn == old(item.sellIn)
+  ensures !isSulfuras(item.name) ==> item.sellIn == old(item.sellIn) - 1
+  
+  ensures isBrie(item.name) && old(item.sellIn) > 0 ==> 
+    item.quality == boundQuality(old(item.quality) + 1)
+  ensures isBrie(item.name) && old(item.sellIn) <= 0 ==> 
+    item.quality == boundQuality(old(item.quality) + 2)
+
+  ensures isBackstage(item.name) && old(item.sellIn) > 10 ==> 
+    item.quality == boundQuality(old(item.quality) + 1)
+  ensures isBackstage(item.name) && 5 < old(item.sellIn) <= 10 ==> 
+    item.quality == boundQuality(old(item.quality) + 2)
+  ensures isBackstage(item.name) && 0 < old(item.sellIn) <= 5 ==> 
+    item.quality == boundQuality(old(item.quality) + 3)
+  
   modifies item
 {
   if (item.name != "Aged Brie"
@@ -92,7 +133,7 @@ method updateItem(item: Item)
         item.quality := item.quality + 1;
       }
     }
-  }
+  }  
 }
 
 function natToString(n: nat): string {
