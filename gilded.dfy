@@ -59,8 +59,34 @@ ensures allValid(items)
   }
 }
 
+function updateSellIn(name: string, sellIn: int) : int {
+  if isSulfuras(name) then sellIn
+  else sellIn - 1
+}
+
+
+function degradeRate(name: string, sellIn: int) : int {
+  var expired := sellIn <= 0;
+  if isBrie(name) && !expired then -1
+  else if isBrie(name) && expired then -2
+  else if expired then 2
+  else 1
+}
+
+function updateQualityBackstageUnbounded(sellIn: int, quality: int) : int {
+  if sellIn > 10 then quality + 1
+  else if 5 < sellIn <= 10 then quality + 2
+  else if 0 < sellIn <= 5 then quality + 3
+  else 0
+}
+
+function updateQuality(name: string, sellIn: int, quality: int) : int {
+  if isSulfuras(name) then quality
+  else if isBackstage(name) then boundQuality(updateQualityBackstageUnbounded(sellIn, quality))
+  else boundQuality(quality - degradeRate(name, sellIn))
+}
+
 method updateItem(item: Item)
-  // if isSulfuras then quality unchange, sellIn decremented
   requires item.valid()
   ensures item.valid()
   ensures item.name == old(item.name)
@@ -83,6 +109,9 @@ method updateItem(item: Item)
     item.quality == boundQuality(old(item.quality) + 2)
   ensures isBackstage(item.name) && 0 < old(item.sellIn) <= 5 ==> 
     item.quality == boundQuality(old(item.quality) + 3)
+  
+  ensures item.sellIn == updateSellIn(old(item.name), old(item.sellIn))
+  ensures updateQuality(item.name, old(item.sellIn), old(item.quality)) == item.quality
   
   modifies item
 {
